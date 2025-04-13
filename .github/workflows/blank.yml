@@ -13,7 +13,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
-        gdal-version: ['3.10.3']
+        gdal-version: ['3.6.4', '3.7.3', '4.0.1']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,8 +31,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Find the correct libgdal-dev package name
+          GDAL_DEV_PACKAGE=$(apt-cache search libgdal-dev | grep "^libgdal-dev " | awk '{print $1}')
+          echo "Found GDAL dev package: $GDAL_DEV_PACKAGE"
           sudo apt-get install -y --no-install-recommends \
-            libgdal-dev=${{ matrix.gdal-version }}.\* \
+            "$GDAL_DEV_PACKAGE=${{ matrix.gdal-version }}.\*" \
             gdal-bin=${{ matrix.gdal-version }}.\*
           # Install FileGDB driver
           sudo apt-get install -y libfgdb-dev
@@ -66,7 +69,7 @@ jobs:
           $env:GDAL_DATA = "C:\gdal\data"
           $env:PROJ_LIB = "C:\gdal\projlib"
           
-          # Download and install the FileGDB SDK (adjust URL and version as needed)
+          # Download and install the FileGDB SDK (adjust URL as needed)
           $fgdbSdkUrl = "https://github.com/Esri/FileGDB_API/releases/download/1.4.3/FileGDB_API_1.4.3_$arch.zip" # Example URL
           Invoke-WebRequest -Uri $fgdbSdkUrl -OutFile "FileGDB.zip"
           Expand-Archive -Path "FileGDB.zip" -DestinationPath "C:\FileGDB_SDK"
@@ -103,3 +106,4 @@ jobs:
         with:
           name: gdal-wheel-cp${{ matrix.python-version }}-gdal${{ matrix.gdal-version }}-${{ runner.os }}
           path: dist/*.whl
+
