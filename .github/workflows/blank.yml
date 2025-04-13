@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: [ '3.10', '3.11', '3.12', '3.13']
         gdal-version: ['3.6.4', '3.7.3', '4.0.1']
     steps:
       - name: Checkout code
@@ -34,14 +34,21 @@ jobs:
           # Find the correct libgdal-dev package name
           GDAL_DEV_PACKAGE=$(apt-cache search libgdal-dev | grep "^libgdal-dev " | awk '{print $1}')
           echo "Found GDAL dev package: $GDAL_DEV_PACKAGE"
+
+          # Find the closest available GDAL version
+          AVAILABLE_GDAL_VERSION=$(apt-cache show $GDAL_DEV_PACKAGE | grep "^Version: " | head -n 1 | cut -d' ' -f2)
+          echo "Available GDAL version: $AVAILABLE_GDAL_VERSION"
+
+          # Install GDAL and gdal-bin with the available version
           sudo apt-get install -y --no-install-recommends \
-            "$GDAL_DEV_PACKAGE=${{ matrix.gdal-version }}.\*" \
-            gdal-bin=${{ matrix.gdal-version }}.\*
+            "$GDAL_DEV_PACKAGE=$AVAILABLE_GDAL_VERSION" \
+            "gdal-bin=$AVAILABLE_GDAL_VERSION"
+
           # Install FileGDB driver
           sudo apt-get install -y libfgdb-dev
           echo "GDAL_CONFIG=/usr/bin/gdal-config" >> $GITHUB_ENV
           echo "GDAL_VERSION=$(gdal-config --version)" >> $GITHUB_ENV
-          echo "CPLUS_INCLUDE_PATH=/usr/include/gdal" >> $GITHUB_ENV # Add this
+          echo "CPLUS_INCLUDE_PATH=/usr/include/gdal" >> $GITHUB_ENV
 
       - name: Set up GDAL and FGDB (Windows)
         if: runner.os == 'Windows'
@@ -106,4 +113,3 @@ jobs:
         with:
           name: gdal-wheel-cp${{ matrix.python-version }}-gdal${{ matrix.gdal-version }}-${{ runner.os }}
           path: dist/*.whl
-
