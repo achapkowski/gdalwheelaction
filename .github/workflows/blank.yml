@@ -1,5 +1,4 @@
-
-name: Build GDAL Wheels (Cross-Platform with FGDB)
+name: Build GDAL Wheels (Cross-Platform)
 
 on:
   push:
@@ -28,7 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
 
-      - name: Set up GDAL and FGDB (Ubuntu)
+      - name: Set up GDAL (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -45,8 +44,6 @@ jobs:
             "$GDAL_DEV_PACKAGE=$AVAILABLE_GDAL_VERSION" \
             "gdal-bin=$AVAILABLE_GDAL_VERSION"
 
-          # Install FileGDB driver
-          sudo apt-get install -y libfgdb-dev
           echo "GDAL_CONFIG=/usr/bin/gdal-config" >> $GITHUB_ENV
           echo "GDAL_VERSION=$(gdal-config --version)" >> $GITHUB_ENV
           echo "CPLUS_INCLUDE_PATH=/usr/include/gdal" >> $GITHUB_ENV
@@ -54,22 +51,21 @@ jobs:
       - name: Set up GDAL and FGDB (Windows)
         if: runner.os == 'Windows'
         run: |
-          # This is the trickiest part.  You'll likely need to adapt this.
-          #  We'll download a pre-built GDAL and the ESRI FileGDB SDK.
+          # This is the trickiest part.  We'll download a pre-built GDAL and the ESRI FileGDB SDK.
           $gdalVersion = "${{ matrix.gdal-version }}"
           $pythonVersion = "${{ matrix.python-version }}"
 
           # Determine the Python architecture (x86 or x64)
-          $pythonArch = (Get-Process -Id $PID).StartInfo.EnvironmentVariables["PROCESSOR_ARCHITECTURE"]
-          if ($pythonArch -eq "AMD64") {
-              $arch = "x64"
-          } else {
-              $arch = "x86"
+          if ([IntPtr]::Size -eq 8) {
+            $arch = "x64"
+          }
+          else {
+            $arch = "x86"
           }
           Write-Host "Python Architecture: $arch"
 
           # Download GDAL (adjust URL as needed)
-          $gdalUrl = "https://download.osgeo.org/gdal/$gdalVersion/gdal-$gdalVersion-win64-gdal.zip" #pysal
+          $gdalUrl = "https://download.osgeo.org/gdal/$gdalVersion/gdal-$gdalVersion-win64-gdal.zip"
           Invoke-WebRequest -Uri $gdalUrl -OutFile "gdal.zip"
           Expand-Archive -Path "gdal.zip" -DestinationPath "C:\gdal"
           $env:PATH += ";C:\gdal\bin"
@@ -81,30 +77,23 @@ jobs:
           $fgdbSdkUrl = "https://github.com/Esri/FileGDB_API/releases/download/1.4.3/FileGDB_API_1.4.3_$arch.zip" # Example URL
           Invoke-WebRequest -Uri $fgdbSdkUrl -OutFile "FileGDB.zip"
           Expand-Archive -Path "FileGDB.zip" -DestinationPath "C:\FileGDB_SDK"
-          $env:PATH += ";C:\FileGDB_SDK\bin" # Add the SDK's bin directory to PATH
+          $env:PATH += ";C:\FileGDB_SDK\bin"
           
           #Set Environment Variables
-          $env:FGDB_SDK_INCLUDE = "C:\FileGDB_SDK\include" # Important for finding headers
-          $env:FGDB_SDK_LIBRARY_PATH = "C:\FileGDB_SDK\lib\$arch" # Important for linking
-          
-          # Add to PATH.  Crucial for finding DLLs at runtime.
+          $env:FGDB_SDK_INCLUDE = "C:\FileGDB_SDK\include"
+          $env:FGDB_SDK_LIBRARY_PATH = "C:\FileGDB_SDK\lib\$arch"
           $env:PATH += ";C:\FileGDB_SDK\lib\$arch"
 
-      - name: Set up GDAL and FGDB (macOS)
+      - name: Set up GDAL (macOS)
         if: runner.os == 'macOS'
         run: |
-          # macOS setup is also tricky, often involving Homebrew.
-          #  We'll try to install the latest GDAL, and then check the version.
+          # macOS setup
           brew install gdal
           GDAL_VERSION_INSTALLED=$(gdal-config --version)
           echo "Installed GDAL version: $GDAL_VERSION_INSTALLED"
-          echo "GDAL_CONFIG=/opt/homebrew/bin/gdal-config" >> $GITHUB_ENV # Adjust path if needed
+          echo "GDAL_CONFIG=/opt/homebrew/bin/gdal-config" >> $GITHUB_ENV
           echo "GDAL_VERSION=$GDAL_VERSION_INSTALLED" >> $GITHUB_ENV
           echo "CPLUS_INCLUDE_PATH=/opt/homebrew/include" >> $GITHUB_ENV
-          
-          # Install FileGDB.  This might require building from source on macOS.
-          brew tap esri/tap
-          brew install esri-filegdb-sdk
 
       - name: Build wheel
         run: |
