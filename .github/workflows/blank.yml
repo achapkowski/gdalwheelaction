@@ -1,3 +1,4 @@
+
 name: Build GDAL Wheels (Cross-Platform with FGDB)
 
 on:
@@ -93,15 +94,17 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           # macOS setup is also tricky, often involving Homebrew.
-          brew install gdal@${{ matrix.gdal-version }}
-          brew install libspatialite #spatialite
+          #  We'll try to install the latest GDAL, and then check the version.
+          brew install gdal
+          GDAL_VERSION_INSTALLED=$(gdal-config --version)
+          echo "Installed GDAL version: $GDAL_VERSION_INSTALLED"
+          echo "GDAL_CONFIG=/opt/homebrew/bin/gdal-config" >> $GITHUB_ENV # Adjust path if needed
+          echo "GDAL_VERSION=$GDAL_VERSION_INSTALLED" >> $GITHUB_ENV
+          echo "CPLUS_INCLUDE_PATH=/opt/homebrew/include" >> $GITHUB_ENV
+          
           # Install FileGDB.  This might require building from source on macOS.
-          #  The following is a *possible* approach, but might need tweaking.
           brew tap esri/tap
           brew install esri-filegdb-sdk
-          echo "GDAL_CONFIG=/opt/homebrew/bin/gdal-config" >> $GITHUB_ENV # Adjust path if needed
-          echo "GDAL_VERSION=$(gdal-config --version)" >> $GITHUB_ENV
-          echo "CPLUS_INCLUDE_PATH=/opt/homebrew/include" >> $GITHUB_ENV
 
       - name: Build wheel
         run: |
