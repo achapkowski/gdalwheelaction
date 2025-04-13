@@ -1,0 +1,105 @@
+name: Build GDAL Wheels (Cross-Platform with FGDB)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        gdal-version: ['3.6.4', '3.7.3', '4.0.1']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies (All OS)
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Set up GDAL and FGDB (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgdal-dev=${{ matrix.gdal-version }}.\* \
+            gdal-bin=${{ matrix.gdal-version }}.\*
+          # Install FileGDB driver
+          sudo apt-get install -y libfgdb-dev
+          echo "GDAL_CONFIG=/usr/bin/gdal-config" >> $GITHUB_ENV
+          echo "GDAL_VERSION=$(gdal-config --version)" >> $GITHUB_ENV
+          echo "CPLUS_INCLUDE_PATH=/usr/include/gdal" >> $GITHUB_ENV # Add this
+
+      - name: Set up GDAL and FGDB (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # This is the trickiest part.  You'll likely need to adapt this.
+          #  We'll download a pre-built GDAL and the ESRI FileGDB SDK.
+          $gdalVersion = "${{ matrix.gdal-version }}"
+          $pythonVersion = "${{ matrix.python-version }}"
+
+          # Determine the Python architecture (x86 or x64)
+          $pythonArch = (Get-Process -Id $PID).StartInfo.EnvironmentVariables["PROCESSOR_ARCHITECTURE"]
+          if ($pythonArch -eq "AMD64") {
+              $arch = "x64"
+          } else {
+              $arch = "x86"
+          }
+          Write-Host "Python Architecture: $arch"
+
+          # Download GDAL (adjust URL as needed)
+          $gdalUrl = "https://download.osgeo.org/gdal/$gdalVersion/gdal-$gdalVersion-win64-gdal.zip" #pysal
+          Invoke-WebRequest -Uri $gdalUrl -OutFile "gdal.zip"
+          Expand-Archive -Path "gdal.zip" -DestinationPath "C:\gdal"
+          $env:PATH += ";C:\gdal\bin"
+          $env:GDAL_ROOT = "C:\gdal"
+          $env:GDAL_DATA = "C:\gdal\data"
+          $env:PROJ_LIB = "C:\gdal\projlib"
+          
+          # Download and install the FileGDB SDK (adjust URL and version as needed)
+          $fgdbSdkUrl = "https://github.com/Esri/FileGDB_API/releases/download/1.4.3/FileGDB_API_1.4.3_$arch.zip" # Example URL
+          Invoke-WebRequest -Uri $fgdbSdkUrl -OutFile "FileGDB.zip"
+          Expand-Archive -Path "FileGDB.zip" -DestinationPath "C:\FileGDB_SDK"
+          $env:PATH += ";C:\FileGDB_SDK\bin" # Add the SDK's bin directory to PATH
+          
+          #Set Environment Variables
+          $env:FGDB_SDK_INCLUDE = "C:\FileGDB_SDK\include" # Important for finding headers
+          $env:FGDB_SDK_LIBRARY_PATH = "C:\FileGDB_SDK\lib\$arch" # Important for linking
+          
+          # Add to PATH.  Crucial for finding DLLs at runtime.
+          $env:PATH += ";C:\FileGDB_SDK\lib\$arch"
+
+      - name: Set up GDAL and FGDB (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # macOS setup is also tricky, often involving Homebrew.
+          brew install gdal@${{ matrix.gdal-version }}
+          brew install libspatialite #spatialite
+          # Install FileGDB.  This might require building from source on macOS.
+          #  The following is a *possible* approach, but might need tweaking.
+          brew tap esri/tap
+          brew install esri-filegdb-sdk
+          echo "GDAL_CONFIG=/opt/homebrew/bin/gdal-config" >> $GITHUB_ENV # Adjust path if needed
+          echo "GDAL_VERSION=$(gdal-config --version)" >> $GITHUB_ENV
+          echo "CPLUS_INCLUDE_PATH=/opt/homebrew/include" >> $GITHUB_ENV
+
+      - name: Build wheel
+        run: |
+          # Common build step.  Assumes setup.py handles the different OS.
+          python setup.py bdist_wheel
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdal-wheel-cp${{ matrix.python-version }}-gdal${{ matrix.gdal-version }}-${{ runner.os }}
+          path: dist/*.whl
