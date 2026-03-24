@@ -44,6 +44,7 @@ jobs:
           from pathlib import Path
 
           report = json.loads(Path("/tmp/dependency-license-report.json").read_text(encoding="utf-8"))
-          assert report["ecosystem"] == "javascript"
-          assert report["dependency_count"] >= 1
+          assert isinstance(report, list)
+          assert report
+          assert all(item["ecosystem"] == "javascript" for item in report)
           PY
