@@ -36,6 +36,14 @@ class FakePythonRecord(DependencyRecord):
 
 
 class DependencyLicenseTests(unittest.TestCase):
+    def test_dependency_license_workflow_uses_nested_action(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        workflow_path = repo_root / ".github" / "workflows" / "dependency-license-check.yml"
+
+        self.assertTrue(workflow_path.exists())
+        workflow_contents = workflow_path.read_text(encoding="utf-8")
+        self.assertIn("uses: ./dependency-license-check", workflow_contents)
+
     def test_explicit_license_is_reported(self) -> None:
         record = FakePythonRecord(
             "Name: sample-package\n"

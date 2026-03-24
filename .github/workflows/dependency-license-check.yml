@@ -1,0 +1,49 @@
+name: Dependency License Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dependency-license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create sample JavaScript project
+        shell: bash
+        run: |
+          mkdir -p /tmp/dependency-license-check-fixture
+          cat > /tmp/dependency-license-check-fixture/package.json <<'EOF'
+          {
+            "name": "dependency-license-check-fixture",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "left-pad": "1.3.0"
+            }
+          }
+          EOF
+
+      - name: Run dependency license action
+        uses: ./dependency-license-check
+        with:
+          path: /tmp/dependency-license-check-fixture
+          ecosystem: javascript
+          report-path: /tmp/dependency-license-report.json
+
+      - name: Verify report output
+        shell: bash
+        run: |
+          test -f /tmp/dependency-license-report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("/tmp/dependency-license-report.json").read_text(encoding="utf-8"))
+          assert report["ecosystem"] == "javascript"
+          assert report["dependency_count"] >= 1
+          PY
