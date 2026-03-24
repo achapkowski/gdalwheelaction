@@ -2,6 +2,8 @@
 
 This repository provides a reusable GitHub Action that can be dropped into other repositories to check dependency license metadata.
 
+The dependency checker is exposed as a dedicated nested action at `dependency-license-check/action.yml`, so it is separate from any other action behavior in this repository.
+
 The action currently supports:
 
 - Python repositories (`pyproject.toml`, `setup.py`, `setup.cfg`, or `requirements.txt`)
@@ -34,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: achapkowski/gdalwheelaction@main
+      - uses: achapkowski/gdalwheelaction/dependency-license-check@main
         with:
           ecosystem: auto
           allowed-licenses: |

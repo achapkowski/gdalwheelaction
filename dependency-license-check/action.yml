@@ -73,7 +73,7 @@ runs:
         INPUT_FAIL_ON_MISSING_LICENSE: ${{ inputs.fail-on-missing-license }}
         INPUT_REPORT_PATH: ${{ inputs.report-path }}
       run: |
-        python "${{ github.action_path }}/scripts/check_dependency_licenses.py" \
+        python "${{ github.action_path }}/../scripts/check_dependency_licenses.py" \
           --path "$INPUT_PATH" \
           --ecosystem "$INPUT_ECOSYSTEM" \
           --report-path "$INPUT_REPORT_PATH" \
